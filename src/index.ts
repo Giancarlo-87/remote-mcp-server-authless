@@ -1,59 +1,36 @@
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import axios from "axios";
 
 // Define our MCP agent with tools
 export class MyMCP extends McpAgent {
 	server = new McpServer({
-		name: "Authless Calculator",
+		name: "Weavely Therapy Forms",
 		version: "1.0.0",
 	});
 
 	async init() {
-		// Simple addition tool
+		// Create form tool for Weavely
 		this.server.tool(
-			"add",
-			{ a: z.number(), b: z.number() },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			})
-		);
+			"create-form",
+			'Create a new Weavely form for therapy practice.',
+			{ name: z.string().optional(), prompt: z.string() },
+			async (args) => {
+				const { data } = await axios.post(`https://api.weavely.ai/v1/forms/generate`, args)
+					.catch((error) => {
+						throw new Error(error.message);
+					});
 
-		// Calculator tool with multiple operations
-		this.server.tool(
-			"calculate",
-			{
-				operation: z.enum(["add", "subtract", "multiply", "divide"]),
-				a: z.number(),
-				b: z.number(),
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(data, null, 2)
+						}
+					]
+				};
 			},
-			async ({ operation, a, b }) => {
-				let result: number;
-				switch (operation) {
-					case "add":
-						result = a + b;
-						break;
-					case "subtract":
-						result = a - b;
-						break;
-					case "multiply":
-						result = a * b;
-						break;
-					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
-						result = a / b;
-						break;
-				}
-				return { content: [{ type: "text", text: String(result) }] };
-			}
 		);
 	}
 }
